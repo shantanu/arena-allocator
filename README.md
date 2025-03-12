@@ -1,4 +1,4 @@
-# Arena Allocator in C++
+# Arena Allocator in C++ (⚡200x+ faster than GNU Malloc!)
 This repository contains a custom Arena allocator (bump allocator) implemented in C++ to benchmark memory allocation performance with `std::vector` against the default GNU heap allocator. 
 
 🟢 [Run it on Godbolt!](https://godbolt.org/z/jj1Mbc71o) 🟢
@@ -7,18 +7,18 @@ This repository contains a custom Arena allocator (bump allocator) implemented i
 
 # 🔑 Key Functions and Classes:
 - Overloaded global `operator new` and `operator delete` for debugging. These print when heap memory is allocated. 
-- Arena: Uses a `std::array<std::byte, N>` as a stack-allocated buffer, and a pointer to the next-allocated byte. If there is not enough space in the buffer, requests are forwarded to the global `operator new` (`std::malloc`). Memory is only freed if it is the most recent allocation. Otherwise, you have to wait until the entire arena is freed (sorry!).
+- `Arena`: Uses a `std::array<std::byte, N>` as a stack-allocated buffer, and a pointer to the next-allocated byte. If there is not enough space in the buffer, requests are forwarded to the global `operator new` (`std::malloc`). Memory is only freed if it is the most recent allocation. Otherwise, you have to wait until the entire arena is freed (sorry!).
 
 - Alignment guarantee: Memory is guaranteed to be aligned to the maximum scalar type alignment guarantee (`std::max_align_t`). This matches `std::malloc`.
 
-- ShortAlloc: A custom STL-compatible allocator using the Arena. Keeps a pointer to the arena, passed in during construction. Note that the arena pointer is a raw pointer and does not own the underlying memory so it's up to the user to maintain this!
+- `ShortAlloc`: A custom STL-compatible allocator using the Arena. Keeps a pointer to the arena, passed in during construction. Note that the arena pointer is a raw pointer and does not own the underlying memory so it's up to the user to maintain this!
 
-- TestClass: A wrapper around `std::array<std::byte, N>`, which allows us to test the allocator performance on varying sized objects. Copy and move operations don't do anything, because I only want to measure allocate/deallocate performance and not copy/move performance.  
+- `TestClass`: A wrapper around `std::array<std::byte, N>`, which allows us to test the allocator performance on varying sized objects. Copy and move operations don't do anything, because I only want to measure allocate/deallocate performance and not copy/move performance.  
 
 # ⏱️ Performance Benchmarks 
 Using `std::vector` to `emplace_back` 100 objects of the listed size in an arena that is 1028*data size (enough for all vector reallocations). The vector does not reserve capacity, so it allocates double capacity when it fills up and the next `emplace_back` call occurs. Performance is measured on online QuickBench.
 
-> Disclaimer: "The benchmark runs on a pool of AWS machines whose load is unknown and potentialy next to multiple other benchmarks. Any duration it could output would be meaningless. [...] Quick Bench can, however, give a reasonably good comparison between two snippets of code run in the same conditions." 
+> Disclaimer: "The benchmark runs on a pool of AWS machines whose load is unknown and potentially next to multiple other benchmarks. Any duration it could output would be meaningless. [...] Quick Bench can, however, give a reasonably good comparison between two snippets of code run in the same conditions." 
 
 
 | Object Size (B) | Arena Size (B)      | Stack Time | Heap Time | Stack Time Faster        | QuickBench Link |
@@ -44,7 +44,7 @@ In the GNU Malloc allocator, there are basically 3 categories of allocation:
 2. Normal heap allocation
 3. Large allocations (above 128KB)
 
-(The boundaries of these are implementation defined, but these numbers are reasonable.)
+The boundaries of these are implementation defined, but these numbers are reasonable.
 
 The fast bins are pre-allocated, fixed-sized bins, each with a bit designating whether or not it is free. Since the allocator doesn't need to traverse a free list and deal with coalescing blocks of varied size, allocations from the fast bins are pretty fast. Having this memory pre-allocated on the heap or in thread-local storage (called tcache) also makes it faster. 
 
@@ -52,14 +52,18 @@ The medium-sized heap allocation happens through a free-list defined on an Arena
 
 The large allocations call `mmap` and directly request some memory from the OS. This is especially slow, since the `mmap` system call has to do some page table manipulations, and accessing this memory for the first time will cause a page fault. 
 
-> I believe the *main* reason for the spike in latency is because when the `std::vector` doubled to 128 objects each sized 1K, we crossed the 128KB allocation threshold into `mmap` territory. The ensuing page fault(s) caused by accessing that region of memory was espeically slow. 
+[The GNU Malloc documentation](https://sourceware.org/glibc/wiki/MallocInternals) contains all the nitty gritty details.
+
+> I believe the *main* reason for the spike in latency is because when the `std::vector` doubled to 128 objects each sized 1K, we crossed the 128KB allocation threshold into `mmap` territory. The ensuing page fault(s) caused by accessing that region of memory made the allocator crawl. 
 
 > Also, with 1KB sized objects, only 4 objects can fit into a page (which is 4KB on Linux). We also didn't do anything to align the objects to the page boundaries. This means that even doing sequential access of this memory can cause TLB misses, cache misses, and page faults on first load. 
 
 
-[The GNU Malloc documentation](https://sourceware.org/glibc/wiki/MallocInternals) contains all the nitty gritty details.
+(Aside: I picked a horse emoji because it's the most similar thing I could find to a gnu, hope you appreciate it!)
 
+# ✅ Takeaways
+- Stack-based allocators are REALLY fast. They're essentially constant time, especially compared to when heap allocators get into the large object category and start making `mmap` system calls. 
 
-(Aside: I picked a horse emoji because it's the most similar thing I could find to a gnu, hope you appreciate!)
+- The tradeoff is that since the stack is typically small (on Linux it's only 8MB per thread), you can only do limited things with this.
 
-
+- You can't free the memory within the Arena. You have to wait and free the entire buffer at once. This is only good for certain workloads and not great for a general capacity allocator. 

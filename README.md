@@ -55,7 +55,7 @@ The large allocations call `mmap` and directly request some memory from the OS. 
 [The GNU Malloc documentation](https://sourceware.org/glibc/wiki/MallocInternals) contains all the nitty gritty details.
 
 > I believe the *main* reason for the spike in latency is because when the `std::vector` doubled to 128 objects each sized 1K, we crossed the 128KB allocation threshold into `mmap` territory. The ensuing page fault(s) caused by accessing that region of memory made the allocator crawl. 
-
+>
 > Also, with 1KB sized objects, only 4 objects can fit into a page (which is 4KB on Linux). We also didn't do anything to align the objects to the page boundaries. This means that even doing sequential access of this memory can cause TLB misses, cache misses, and page faults on first load. 
 
 The numbers line up pretty well with [Jeff Dean's Latency Numbers](https://gist.github.com/jboner/2841832). Main memory reference is ~100ns, which makes sense for Stack Time. SSD random access is noted around 150us, but sequential access and 10+ years of hard drive improvements can account for the difference on Heap Time. 

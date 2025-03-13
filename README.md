@@ -21,7 +21,7 @@ Using `std::vector` to `emplace_back` 100 objects of the listed size in an arena
 > Disclaimer: "The benchmark runs on a pool of AWS machines whose load is unknown and potentially next to multiple other benchmarks. Any duration it could output would be meaningless. [...] Quick Bench can, however, give a reasonably good comparison between two snippets of code run in the same conditions." 
 
 
-| Object Size (B) | Arena Size (B)      | Stack Time | Heap Time | Stack Time Faster        | QuickBench Link |
+| Object Size (B) | Arena Size (B)      | Stack Time (ns) | Heap Time (ns) | Stack Time Faster        | QuickBench Link |
 |----------------|--------------------|------------|-----------|--------------------------|-----------------|
 | 8             | 8K                  | 179        | 401       | Stack 2.2x faster        | [Link](https://quick-bench.com/q/FSVMOb4MG32-acROZFLstV0xmbc) |
 | 16            | 16K                 | 187        | 486       | Stack 2.6x faster        | [Link](https://quick-bench.com/q/EHJp6Uk8AfUtMWXmkRzLwU8nO6g) |
@@ -30,7 +30,7 @@ Using `std::vector` to `emplace_back` 100 objects of the listed size in an arena
 | 128           | 128K                | 189        | 665       | Stack 3.5x faster        | [Link](https://quick-bench.com/q/0LgLAzs_9k9AYHwMDe9CjvBSF08) |
 | 256           | 256K                | 189        | 744       | Stack 3.9x faster        | [Link](https://quick-bench.com/q/GOgxN2sY_svtHwzDqRKhK2qC4Uo) |
 | 512           | 512K                | 189        | 824       | **Stack 4.4x faster**        | [Link](https://quick-bench.com/q/EfeGYpXX_9xcR4vIvLesMp5CbFQ) |
-| 1K            | 1M                  | 188        | 17,543    | 🔴 **Stack 93x faster (!)** 🔴     | [Link](https://quick-bench.com/q/hnEZC5GC-9UoXK6aMM5VZ-66CKY) |
+| 1K            | 1M                  | 188        | 17,543    | 🔴 **Stack 93x faster (!)**  | [Link](https://quick-bench.com/q/hnEZC5GC-9UoXK6aMM5VZ-66CKY) |
 | 2K            | 2M                  | 188        | 27,401    | Stack 150x faster        | [Link](https://quick-bench.com/q/lhsE7jALIXMfwp5BW4tzn9yLO6U) |
 | 4K            | 4M                  | 187        | 36,372    | Stack 190x faster        | [Link](https://quick-bench.com/q/C4nXuQGAnEEwD8UWKUo8ZhH8HDM) |
 | 8K            | 8M (whole stack!)    | 188        | 44,346    | Stack 230x faster        | [Link](https://quick-bench.com/q/5BRGLEjOHhZYnX6Wbojy8xDAb0g) |
@@ -58,6 +58,7 @@ The large allocations call `mmap` and directly request some memory from the OS. 
 
 > Also, with 1KB sized objects, only 4 objects can fit into a page (which is 4KB on Linux). We also didn't do anything to align the objects to the page boundaries. This means that even doing sequential access of this memory can cause TLB misses, cache misses, and page faults on first load. 
 
+The numbers line up pretty well with [Jeff Dean's Latency Numbers](https://gist.github.com/jboner/2841832). Main memory reference is ~100ns, which makes sense for Stack Time. SSD random access is noted around 150us, but sequential access and 10+ years of hard drive improvements can account for the difference on Heap Time. 
 
 (Aside: I picked a horse emoji because it's the most similar thing I could find to a gnu, hope you appreciate it!)
 

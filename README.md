@@ -18,6 +18,7 @@ This repository contains a custom Arena allocator (bump allocator) implemented i
 # ⏱️ Performance Benchmarks 
 Using `std::vector` to `emplace_back` 100 objects of the listed size in an arena that is 1028*data size (enough for all vector reallocations). The vector does not reserve capacity, so it allocates double capacity when it fills up and the next `emplace_back` call occurs. Performance is measured on online QuickBench.
 
+> [!NOTE]
 > Disclaimer: "The benchmark runs on a pool of AWS machines whose load is unknown and potentially next to multiple other benchmarks. Any duration it could output would be meaningless. [...] Quick Bench can, however, give a reasonably good comparison between two snippets of code run in the same conditions." 
 
 
